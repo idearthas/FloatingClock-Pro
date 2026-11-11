@@ -1,12 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Foreground service permission (for Android O and above) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- Android 14 (API 34+) 要求使用 specialUse 类型的前台服务必须同时声明此权限。
+         悬浮时钟是"用户主动开启、需要长期持续运行"的用例，不属于任何其他 FGS 类型，
+         因此使用 specialUse，而不是只能运行约 3 分钟的 shortService。 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- Allow UDP/TCP network access for NTP queries from the Flutter layer -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Declare SYSTEM_ALERT_WINDOW to make overlay-related settings more discoverable
          on some OEM devices / settings screens. This is a special permission and
          still requires the user to grant it in system settings. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- Android 13+ 前台服务通知需要通知权限，否则通知不会展示 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 允许应用直接弹出"忽略电池优化"系统对话框，降低被厂商后台查杀的概率 -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <application
         android:label="悬浮时间"
         android:name="${applicationName}"
@@ -41,11 +49,22 @@
             android:name="flutterEmbedding"
             android:value="2" />
         <!-- Service that creates a floating overlay clock. Permission to draw over other apps
-             must be granted by the user in system settings. -->
+             must be granted by the user in system settings.
+
+             IMPORTANT: the type MUST stay "specialUse". "shortService" (used before) is
+             hard-limited to ~3 minutes on Android 14+, after which the system triggers
+             onTimeout/ANR and kills the app — that was the cause of the clock disappearing
+             after three minutes. specialUse has no runtime duration limit and supports
+             sticky restart (START_STICKY), so the overlay can stay up indefinitely. -->
         <service
             android:name=".FloatingClockService"
             android:exported="false"
-            android:foregroundServiceType="shortService" />
+            android:foregroundServiceType="specialUse">
+            <!-- Google Play / system reviewers look at this free-form explanation. -->
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="FloatingClock shows a user-initiated, always-on floating clock on top of other apps with 10 ms precision. The task must run continuously until the user explicitly stops it and is not covered by dataSync, mediaPlayback, location or any other foreground service type." />
+        </service>
     </application>
     <!-- Required to query other apps that can handle certain intents.
          On Android 11+ (API 30+) package visibility restrictions limit the

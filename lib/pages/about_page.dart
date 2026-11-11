@@ -1,8 +1,10 @@
-import 'package:flutter/material.dart';
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData, MethodChannel;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:floating_clock/theme/app_theme.dart';
+import 'package:floating_clock/widgets/ui_kit.dart';
 
 class AboutPage extends StatefulWidget {
   const AboutPage({super.key});
@@ -60,8 +62,20 @@ class _AboutPageState extends State<AboutPage> {
     } catch (_) {
       // ignore errors and leave version empty
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message, style: const TextStyle(fontSize: 13)),
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: const Color(0xFF1B2338),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.medium)),
+      margin: const EdgeInsets.all(AppSpacing.l),
+    ));
   }
 
   Future<void> _openRepo() async {
@@ -69,24 +83,18 @@ class _AboutPageState extends State<AboutPage> {
     try {
       final can = await canLaunchUrl(uri);
       if (!can) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('无法打开链接')));
+        _showSnack('无法打开链接');
         return;
       }
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('无法打开链接')));
+      _showSnack('无法打开链接');
     }
   }
 
   void _copyRepo() {
     Clipboard.setData(ClipboardData(text: _repoUrl)).then((_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('仓库地址已复制到剪贴板')));
+      _showSnack('仓库地址已复制到剪贴板');
     });
   }
 
@@ -94,71 +102,229 @@ class _AboutPageState extends State<AboutPage> {
   Widget build(BuildContext context) {
     final displayedVersion = _version.isNotEmpty ? _version : '未知';
 
-    final iconWidget = ClipOval(
+    final iconWidget = ClipRRect(
+      borderRadius: BorderRadius.circular(22),
       child: _iconBytes != null
-          ? Image.memory(
-              _iconBytes!,
-              width: 72,
-              height: 72,
-              fit: BoxFit.cover,
-            )
+          ? Image.memory(_iconBytes!, width: 76, height: 76, fit: BoxFit.cover)
           : Image(
               image: _fallbackIcon,
-              width: 72,
-              height: 72,
+              width: 76,
+              height: 76,
               fit: BoxFit.cover,
             ),
     );
 
     return Scaffold(
       appBar: AppBar(title: const Text('关于')),
-      body: Center(
-        child: Card(
-          elevation: 6,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 应用图标：优先从平台读取已安装应用的 launcher 图标，失败时使用本地资产回退
-                iconWidget,
-                const SizedBox(height: 12),
-                Text(_appName,
-                    style:
-                        const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                if (_loading)
-                  const SizedBox(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xl, 8, AppSpacing.xl, AppSpacing.xxl),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 品牌卡
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              decoration: BoxDecoration(
+                gradient: AppGradients.hero,
+                borderRadius: BorderRadius.circular(AppRadius.large),
+                boxShadow: AppShadows.hero,
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(26),
+                    ),
+                    child: iconWidget,
+                  ),
+                  const SizedBox(height: AppSpacing.l),
+                  Text(
+                    _appName,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s),
+                  if (_loading)
+                    const SizedBox(
                       height: 18,
                       width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2)),
-                if (!_loading)
-                  Text('版本 $displayedVersion',
-                      style: TextStyle(color: Colors.grey[700])),
-                const SizedBox(height: 12),
-                const Text('一个显示并同步时间的悬浮窗应用。',
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  else
+                    Tag(
+                      label: 'v$displayedVersion',
+                      color: Colors.white,
+                      background: const Color(0x1FFFFFFF),
+                    ),
+                  const SizedBox(height: AppSpacing.l),
+                  const Text(
+                    '高精度、可拖动的多源悬浮时钟',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.black54)),
-                const SizedBox(height: 18),
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  ElevatedButton.icon(
-                    onPressed: _openRepo,
-                    icon: const Icon(Icons.open_in_new),
-                    label: const Text('打开仓库'),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: AppColors.onDarkMuted,
+                      height: 1.5,
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: _copyRepo,
-                    icon: const Icon(Icons.copy),
-                    label: const Text('复制地址'),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+
+            // 功能亮点
+            SectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SectionHeader(
+                    title: '功能亮点',
+                    subtitle: '为精准计时而设计',
+                    icon: Icons.auto_awesome,
                   ),
-                ]),
+                  const SizedBox(height: AppSpacing.l),
+                  _featureRow(
+                    Icons.timer,
+                    AppColors.brand,
+                    AppColors.brandSoft,
+                    '10 毫秒级精度',
+                    '支持 0.1 秒 / 0.01 秒切换，小数位高亮显示',
+                  ),
+                  _featureRow(
+                    Icons.public,
+                    AppColors.success,
+                    AppColors.successSoft,
+                    '多时间源同步',
+                    '系统 / NTP / HTTP，展示与系统时间的偏差',
+                  ),
+                  _featureRow(
+                    Icons.layers_outlined,
+                    AppColors.accent,
+                    const Color(0xFFF1EDFF),
+                    '悬浮窗与画中画',
+                    '可拖动、可锁定位置，随时在其他应用上层查看',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.l),
+
+            // 开源仓库
+            SectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SectionHeader(
+                    title: '开源仓库',
+                    subtitle: '基于 Flutter 构建',
+                    icon: Icons.code,
+                  ),
+                  const SizedBox(height: AppSpacing.l),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(AppSpacing.m),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceAlt,
+                      borderRadius: BorderRadius.circular(AppRadius.medium),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Text(
+                      _repoUrl,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.l),
+                  Row(children: [
+                    Expanded(
+                      child: GradientButton(
+                        label: '打开仓库',
+                        icon: Icons.open_in_new,
+                        onPressed: _openRepo,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.m),
+                    Expanded(
+                      child: SoftButton(
+                        label: '复制地址',
+                        icon: Icons.copy,
+                        onPressed: _copyRepo,
+                      ),
+                    ),
+                  ]),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            const Center(
+              child: Text(
+                'FloatingClock · 让每一毫秒都清晰可见',
+                style:
+                    TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _featureRow(
+    IconData icon,
+    Color color,
+    Color background,
+    String title,
+    String description,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.l),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(AppRadius.small),
+            ),
+            child: Icon(icon, size: 19, color: color),
+          ),
+          const SizedBox(width: AppSpacing.m),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    height: 1.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ],
             ),
           ),
-        ),
+        ],
       ),
     );
   }

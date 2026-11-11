@@ -1,5 +1,6 @@
 package io.github.amchii.floatingclock
 
+import android.Manifest
 import android.app.ActivityManager
 import android.app.PictureInPictureParams
 import android.content.BroadcastReceiver
@@ -14,6 +15,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Rational
 import java.io.ByteArrayOutputStream
@@ -22,6 +24,10 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    companion object {
+        private const val REQUEST_NOTIFICATION_PERMISSION = 1001
+    }
+
     private val CHANNEL = "floating_clock"
     private lateinit var channel: MethodChannel
     private val overlayStoppedAction = "io.github.amchii.floatingclock.OVERLAY_STOPPED"
@@ -59,6 +65,67 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "hasPermission" -> {
                     result.success(Settings.canDrawOverlays(this))
+                }
+                // Android 13+ 前台服务通知权限。未授予时服务仍可运行，但通知不展示，
+                // 用户也难以从通知栏快速停止悬浮窗，因此启动时主动请求一次。
+                "hasNotificationPermission" -> {
+                    val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+                            PackageManager.PERMISSION_GRANTED
+                    } else {
+                        true
+                    }
+                    result.success(granted)
+                }
+                "requestNotificationPermission" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                            PackageManager.PERMISSION_GRANTED
+                    ) {
+                        try {
+                            requestPermissions(
+                                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                                REQUEST_NOTIFICATION_PERMISSION
+                            )
+                        } catch (_: Exception) {
+                        }
+                    }
+                    result.success(true)
+                }
+                // 部分国产 ROM 会在锁屏后 aggressively 查杀后台服务；引导用户把应用
+                // 加入电池优化白名单，可显著提高悬浮窗的长期存活率。
+                "isIgnoringBatteryOptimizations" -> {
+                    val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+                        pm.isIgnoringBatteryOptimizations(packageName)
+                    } else {
+                        true
+                    }
+                    result.success(granted)
+                }
+                "requestIgnoreBatteryOptimizations" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        try {
+                            val intent = Intent(
+                                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                Uri.parse("package:$packageName")
+                            )
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (_: Exception) {
+                            // 某些 ROM 不支持直接弹窗，退回电池优化设置列表
+                            try {
+                                startActivity(
+                                    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                )
+                                result.success(true)
+                            } catch (_: Exception) {
+                                result.success(false)
+                            }
+                        }
+                    } else {
+                        result.success(true)
+                    }
                 }
                 "requestPermission" -> {
                     // Try to open the app-specific overlay permission page. Some OEM settings

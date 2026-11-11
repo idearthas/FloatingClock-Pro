@@ -10,7 +10,9 @@ plugins {
 
 android {
     namespace = "io.github.amchii.floatingclock"
-    compileSdk = flutter.compileSdkVersion
+    // specialUse 前台服务类型、Service.onTimeout() 与 startForeground 三参数重载
+    // 都是 Android 14 (API 34) 引入的，编译 SDK 不能低于 34。
+    compileSdk = maxOf(flutter.compileSdkVersion, 34)
     ndkVersion = "29.0.14033849"
 
     compileOptions {

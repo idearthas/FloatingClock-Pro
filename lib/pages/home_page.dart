@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:floating_clock/pages/about_page.dart';
 import 'package:floating_clock/models/time_precision.dart';
 import 'package:floating_clock/models/time_source.dart';
+import 'package:floating_clock/theme/app_theme.dart';
+import 'package:floating_clock/widgets/ui_kit.dart';
 
 // Preset/source identifiers and defaults
 const String _presetNtpAliyun = 'ntp.aliyun.com';
@@ -29,19 +31,12 @@ const String _timeSourcesKey = 'time_sources_json';
 const String _precisionPrefKey = 'time_precision';
 const String _fractionColorPrefKey = 'fraction_color';
 
-class _FractionColorOption {
-  final String key;
-  final String label;
-  final Color color;
-  const _FractionColorOption(this.key, this.label, this.color);
-}
-
-const List<_FractionColorOption> _fractionColorOptions = [
-  _FractionColorOption('deep_red', '暗红', Color(0xFFC62828)),
-  _FractionColorOption('amber', '琥珀', Color(0xFFEF6C00)),
-  _FractionColorOption('teal', '青绿', Color(0xFF00796B)),
-  _FractionColorOption('indigo', '靛蓝', Color(0xFF3949AB)),
-  _FractionColorOption('purple', '紫罗兰', Color(0xFF8E24AA)),
+const List<ColorChoice> _fractionColorOptions = [
+  ColorChoice('deep_red', '暗红', Color(0xFFC62828)),
+  ColorChoice('amber', '琥珀', Color(0xFFEF6C00)),
+  ColorChoice('teal', '青绿', Color(0xFF00796B)),
+  ColorChoice('indigo', '靛蓝', Color(0xFF3949AB)),
+  ColorChoice('purple', '紫罗兰', Color(0xFF8E24AA)),
 ];
 
 class HomePage extends StatefulWidget {
@@ -65,6 +60,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _overlayRunning = false;
   bool _pipSupported = false;
   bool _isInPiP = false;
+  bool _batteryOptimized = false;
   TimePrecision _timePrecision = TimePrecision.centisecond;
   String _fractionColorKey = _fractionColorOptions.first.key;
   // Overlay entry used to show an inline tooltip above other widgets (doesn't
@@ -153,6 +149,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _refreshOverlayStatus();
+      _checkBatteryOptimization();
     }
   }
 
@@ -197,11 +194,35 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
-  _FractionColorOption get _fractionColorOption =>
+  ColorChoice get _fractionColorOption =>
       _fractionColorOptions.firstWhere((opt) => opt.key == _fractionColorKey,
           orElse: () => _fractionColorOptions.first);
 
   Color get _fractionColor => _fractionColorOption.color;
+
+  TimeSource get _selectedSource {
+    if (_sources.isEmpty) return TimeSource.system();
+    final idx = _selectedIndex.clamp(0, _sources.length - 1);
+    return _sources[idx];
+  }
+
+  void _showSnack(String message, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        Icon(error ? Icons.error_outline : Icons.check,
+            color: Colors.white, size: 18),
+        const SizedBox(width: 8),
+        Expanded(child: Text(message, style: const TextStyle(fontSize: 13))),
+      ]),
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: error ? AppColors.danger : const Color(0xFF1B2338),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.medium)),
+      margin: const EdgeInsets.all(AppSpacing.l),
+      duration: const Duration(seconds: 3),
+    ));
+  }
 
   void _removeSyncOverlay() {
     try {
@@ -220,14 +241,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     // Measure text to compute tooltip size
     final tp = TextPainter(
-        text: TextSpan(text: text, style: const TextStyle(fontSize: 12)),
+        text: TextSpan(text: text, style: const TextStyle(fontSize: 11.5)),
         textDirection: Directionality.of(context))
-      ..layout(maxWidth: 260 - 16);
+      ..layout(maxWidth: 260 - 24);
     final textWidth = tp.width;
     final textHeight = tp.height;
 
-    const horizontalPadding = 8.0;
-    const verticalPadding = 6.0;
+    const horizontalPadding = 12.0;
+    const verticalPadding = 9.0;
     final tooltipWidth = textWidth + horizontalPadding * 2;
     final tooltipHeight = textHeight + verticalPadding * 2;
 
@@ -241,13 +262,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     left = left.clamp(8.0, screenWidth - tooltipWidth - 8.0);
     const topOffset = 8.0;
 
-    // Compute follower offset so the follower's top center will be placed at
-    // target bottom center plus this offset; adjust horizontal offset so the
-    // tooltip left aligns with `left`.
     final offsetX = left - (centerX - tooltipWidth / 2);
 
-    // Tooltip bounding rect (in global coordinates) for hit-testing. We
-    // approximate top by tap Y + topOffset if tap Y is available.
     final top = (tapGlobalPos?.dy ?? 0) + topOffset;
     final tooltipRect = Rect.fromLTWH(left, top, tooltipWidth, tooltipHeight);
 
@@ -281,18 +297,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         horizontal: horizontalPadding,
                         vertical: verticalPadding),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade800,
-                      borderRadius: BorderRadius.circular(6),
+                      color: const Color(0xFF1B2338),
+                      borderRadius: BorderRadius.circular(AppRadius.medium),
+                      border: Border.all(color: const Color(0x22FFFFFF)),
                       boxShadow: const [
                         BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 6,
-                            offset: Offset(0, 2)),
+                            color: Color(0x33000000),
+                            blurRadius: 14,
+                            offset: Offset(0, 5)),
                       ],
                     ),
                     child: Text(text,
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 12)),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500)),
                   ),
                 ),
               ),
@@ -333,6 +352,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _overlayRunning = overlayRunning;
       _pipSupported = pipSupported;
     });
+    await _checkBatteryOptimization();
   }
 
   Future<void> _refreshOverlayStatus() async {
@@ -344,6 +364,28 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         setState(() => _overlayRunning = running);
       }
     } catch (_) {}
+  }
+
+  /// 部分 ROM 会在锁屏后查杀后台服务，检查是否已加入电池优化白名单。
+  Future<void> _checkBatteryOptimization() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final ignored =
+          await _channel.invokeMethod<bool>('isIgnoringBatteryOptimizations');
+      if (!mounted) return;
+      final needGuide = ignored == false;
+      if (needGuide != _batteryOptimized) {
+        setState(() => _batteryOptimized = needGuide);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _requestIgnoreBatteryOptimizations() async {
+    try {
+      await _channel.invokeMethod('requestIgnoreBatteryOptimizations');
+    } catch (_) {
+      _showSnack('无法打开电池优化设置，请在系统设置中手动关闭', error: true);
+    }
   }
 
   Future<void> _handlePlatformCall(MethodCall call) async {
@@ -390,8 +432,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _enterPictureInPicture() async {
     if (!_pipSupported) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('当前设备不支持画中画模式')));
+      _showSnack('当前设备不支持画中画模式', error: true);
       return;
     }
     if (_overlayRunning) {
@@ -404,15 +445,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       final entered = await _channel.invokeMethod<bool>('enterPiP');
       if (entered != null && !entered) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('无法进入画中画模式，请检查系统设置')));
+        _showSnack('无法进入画中画模式，请检查系统设置', error: true);
       }
     } on PlatformException catch (e) {
       debugPrint('enterPiP failed: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('进入画中画失败')));
+      _showSnack('进入画中画失败', error: true);
     }
   }
 
@@ -497,9 +534,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (addrs.isEmpty) return null;
       final addr = addrs.firstWhere((a) => a.type == InternetAddressType.IPv4,
           orElse: () => addrs.first);
-
-      // Log the address we're about to query and the local transmit timestamp.
-      // `t1ms` is captured immediately before building/sending the packet.
 
       final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
       final data = Uint8List(48);
@@ -656,12 +690,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           await _channel.invokeMethod<bool>('hasPermission') ?? false;
       if (!has) {
         await _channel.invokeMethod('requestPermission');
-        if (!mounted) return false;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('请在系统设置允许“悬浮窗/在其他应用上层显示”权限后再次点击开始'),
-        ));
+        _showSnack('请在系统设置允许「在其他应用上层显示」后再次点击开始',
+            error: true);
         return false;
       }
+      // Android 13+ 通知权限：让前台服务通知可见，用户能从通知栏快速停止。
+      try {
+        await _channel.invokeMethod('requestNotificationPermission');
+      } catch (_) {}
+
       final s = _sources[_selectedIndex];
       final offset = s.isSystem ? 0 : s.offsetMillis;
       final label = s.isSystem ? '' : (s.alias.isNotEmpty ? s.alias : s.host);
@@ -710,159 +747,340 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  void _addServerDialog() {
-    final controllerHost = TextEditingController(text: 'ntp.aliyun.com');
-    final controllerAlias = TextEditingController(text: '');
-    showDialog<void>(
-        context: context,
-        builder: (ctx) {
-          return AlertDialog(
-            title: const Text('添加 NTP 服务器'),
-            content: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(
-                  controller: controllerHost,
-                  decoration: const InputDecoration(
-                      hintText: 'ntp.example.com', labelText: '主机')),
-              TextField(
-                  controller: controllerAlias,
-                  decoration:
-                      const InputDecoration(hintText: '可选别名', labelText: '别名')),
-            ]),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('取消')),
-              TextButton(
-                  onPressed: () async {
-                    final host = controllerHost.text.trim();
-                    final alias = controllerAlias.text.trim();
-                    if (host.isNotEmpty) {
-                      // Show a small progress indicator while testing the server.
-                      showDialog<void>(
-                          context: ctx,
-                          barrierDismissible: false,
-                          builder: (_) {
-                            return AlertDialog(
-                                content: Row(children: const [
-                              CircularProgressIndicator(),
-                              SizedBox(width: 12),
-                              Text('正在测试 NTP 服务器...')
-                            ]));
-                          });
+  // ---------------------------------------------------------------------
+  // 时间源编辑 / 删除 / 恢复预设
+  // ---------------------------------------------------------------------
 
-                      // For quick UI tests use a short timeout and few attempts
-                      final off = await _queryNtpOffset(host,
-                          attempts: 2,
-                          timeout: const Duration(milliseconds: 800));
-
-                      // If the state was disposed while awaiting, bail out.
-                      if (!mounted) return;
-
-                      // close progress dialog
-                      Navigator.of(context, rootNavigator: true).pop();
-
-                      if (off == null) {
-                        // Don't add silently if the server failed — inform the user and keep the dialog open.
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text('无法从 $host 获取 NTP 时间，请检查主机或网络')));
-                        return;
-                      }
-
-                      setState(() {
-                        _sources.add(TimeSource.ntp(host, alias: alias));
-                        _sources.last.offsetMillis = off;
-                        _sources.last.lastSync = DateTime.now();
-                      });
-                      _saveServers();
-
-                      // close the add dialog now that we've confirmed the server works
-                      if (!mounted) return;
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  child: const Text('添加')),
-            ],
-          );
-        });
+  InputDecoration _inputDecoration(String label, String hint, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: Icon(icon, size: 19, color: AppColors.brand),
+      filled: true,
+      fillColor: AppColors.surfaceAlt,
+      labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+      hintStyle: const TextStyle(color: AppColors.textTertiary, fontSize: 13),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+        borderSide: const BorderSide(color: AppColors.brand, width: 1.5),
+      ),
+    );
   }
 
-  void _editServerDialog(int index) {
-    final s = _sources[index];
-    final controllerHost = TextEditingController(text: s.host);
-    final controllerAlias = TextEditingController(text: s.alias);
+  void _showSourceEditorDialog(int? index) {
+    final editing = index != null;
+    final s = editing ? _sources[index] : null;
+    final controllerHost =
+        TextEditingController(text: s?.host ?? 'ntp.aliyun.com');
+    final controllerAlias = TextEditingController(text: s?.alias ?? '');
+
     showDialog<void>(
-        context: context,
-        builder: (ctx) {
-          return AlertDialog(
-            title: const Text('编辑 NTP 服务器'),
-            content: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(
-                  controller: controllerHost,
-                  decoration: const InputDecoration(
-                      hintText: 'ntp.example.com', labelText: '主机')),
-              TextField(
-                  controller: controllerAlias,
-                  decoration:
-                      const InputDecoration(hintText: '可选别名', labelText: '别名')),
-            ]),
-            actions: [
-              TextButton(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.large)),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.brandSoft,
+                    borderRadius: BorderRadius.circular(AppRadius.small),
+                  ),
+                  child: const Icon(Icons.dns, size: 19, color: AppColors.brand),
+                ),
+                const SizedBox(width: AppSpacing.m),
+                Expanded(
+                  child: Text(
+                    editing ? '编辑 NTP 服务器' : '添加 NTP 服务器',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                CircleIconButton(
+                  icon: Icons.close,
+                  size: 30,
+                  color: AppColors.textTertiary,
+                  background: AppColors.surfaceAlt,
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('取消')),
-              TextButton(
-                  onPressed: () async {
-                    final host = controllerHost.text.trim();
-                    final alias = controllerAlias.text.trim();
-                    if (host.isNotEmpty) {
-                      // Show progress while testing the edited server
-                      showDialog<void>(
-                          context: ctx,
-                          barrierDismissible: false,
-                          builder: (_) {
-                            return AlertDialog(
-                                content: Row(children: const [
-                              CircularProgressIndicator(),
-                              SizedBox(width: 12),
-                              Text('正在测试 NTP 服务器...')
-                            ]));
-                          });
-
-                      // For quick UI tests use a short timeout and few attempts
-                      final off = await _queryNtpOffset(host,
-                          attempts: 2,
-                          timeout: const Duration(milliseconds: 800));
-
-                      // If the state was disposed while awaiting, bail out.
-                      if (!mounted) return;
-
-                      // close progress dialog
-                      Navigator.of(context, rootNavigator: true).pop();
-
-                      if (off == null) {
-                        // Keep the edit dialog open and report the failure
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text('无法从 $host 获取 NTP 时间，请检查主机或网络')));
-                        return;
-                      }
-
-                      setState(() {
-                        _sources[index] = TimeSource.ntp(host, alias: alias);
-                        _sources[index].offsetMillis = off;
-                        _sources[index].lastSync = DateTime.now();
-                        if (_selectedIndex == index) {
-                          _selectedIndex = index; // keep selection
-                        }
-                      });
-                      _saveServers();
-                      if (!mounted) return;
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  child: const Text('保存')),
+                ),
+              ],
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                '保存前会先测试该服务器是否可用',
+                style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              TextField(
+                controller: controllerHost,
+                decoration:
+                    _inputDecoration('主机', 'ntp.example.com', Icons.language),
+              ),
+              const SizedBox(height: AppSpacing.m),
+              TextField(
+                controller: controllerAlias,
+                decoration:
+                    _inputDecoration('别名', '可填写易记名称', Icons.label_outline),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Row(children: [
+                Expanded(
+                  child: SoftButton(
+                    label: '取消',
+                    icon: Icons.close,
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.m),
+                Expanded(
+                  child: GradientButton(
+                    label: editing ? '保存' : '添加',
+                    icon: Icons.check,
+                    onPressed: () => _confirmSourceEditor(
+                      ctx: ctx,
+                      index: index,
+                      host: controllerHost.text.trim(),
+                      alias: controllerAlias.text.trim(),
+                    ),
+                  ),
+                ),
+              ]),
             ],
-          );
-        });
+          ),
+        ),
+      ),
+    );
   }
+
+  Future<void> _confirmSourceEditor({
+    required BuildContext ctx,
+    required int? index,
+    required String host,
+    required String alias,
+  }) async {
+    if (host.isEmpty) return;
+
+    // 测试服务器时展示进度
+    showDialog<void>(
+      context: ctx,
+      barrierDismissible: false,
+      builder: (_) => Dialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.card)),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 26, vertical: 24),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2.4),
+            ),
+            SizedBox(width: 14),
+            Text('正在测试 NTP 服务器…',
+                style: TextStyle(fontSize: 13, color: AppColors.textPrimary)),
+          ]),
+        ),
+      ),
+    );
+
+    final off = await _queryNtpOffset(host,
+        attempts: 2, timeout: const Duration(milliseconds: 800));
+
+    if (!mounted) return;
+    // 关闭进度弹窗
+    Navigator.of(context, rootNavigator: true).pop();
+
+    if (off == null) {
+      _showSnack('无法从 $host 获取 NTP 时间，请检查主机或网络', error: true);
+      return;
+    }
+
+    setState(() {
+      final source = TimeSource.ntp(host, alias: alias)
+        ..offsetMillis = off
+        ..lastSync = DateTime.now();
+      if (index != null) {
+        _sources[index] = source;
+      } else {
+        _sources.add(source);
+      }
+    });
+    _layerLinks.clear();
+    _removeSyncOverlay();
+    await _saveServers();
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _removeSource(int index) async {
+    final removedHost = _sources[index].host;
+    setState(() {
+      if (_selectedIndex == index) {
+        _selectedIndex = 0;
+      } else if (_selectedIndex > index) {
+        _selectedIndex -= 1;
+      }
+      _sources.removeAt(index);
+    });
+    _removeSyncOverlay();
+    _layerLinks.clear();
+    await _saveServers();
+    if (_isPresetHost(removedHost)) {
+      _hiddenPresets.add(removedHost);
+      await _saveHiddenPresets();
+    }
+  }
+
+  void _selectSource(int index) {
+    if (_selectedIndex == index) return;
+    setState(() => _selectedIndex = index);
+    if (_overlayRunning) _updateOverlayForSelected();
+  }
+
+  void _restorePresetsDialog() {
+    final missing = <String>[];
+    if (!_sources.any((s) => s.host == _presetNtpAliyun)) {
+      missing.add(_presetNtpAliyun);
+    }
+    if (!_sources.any((s) => s.host == _presetNtpTencent)) {
+      missing.add(_presetNtpTencent);
+    }
+    if (!_sources.any((s) => s.host == _presetHttpMeituan)) {
+      missing.add(_presetHttpMeituan);
+    }
+
+    if (missing.isEmpty) {
+      _showSnack('没有缺失的预设需要恢复');
+      return;
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.large)),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('恢复预设源',
+                  style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary)),
+              const SizedBox(height: AppSpacing.m),
+              Text(
+                '将恢复：${missing.map((h) => _presetAliases[h] ?? h).join('、')}',
+                style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.6,
+                    color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Row(children: [
+                Expanded(
+                  child: SoftButton(
+                    label: '取消',
+                    icon: Icons.close,
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.m),
+                Expanded(
+                  child: GradientButton(
+                    label: '恢复',
+                    icon: Icons.restore,
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      _restorePresets();
+                    },
+                  ),
+                ),
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _restorePresets() async {
+    final toAdd = <TimeSource>[];
+    if (!_sources.any((s) => s.host == _presetNtpAliyun)) {
+      toAdd.add(TimeSource.ntp(_presetNtpAliyun,
+          alias: _presetAliases[_presetNtpAliyun] ?? ''));
+    }
+    if (!_sources.any((s) => s.host == _presetNtpTencent)) {
+      toAdd.add(TimeSource.ntp(_presetNtpTencent,
+          alias: _presetAliases[_presetNtpTencent] ?? ''));
+    }
+    if (!_sources.any((s) => s.host == _presetHttpMeituan)) {
+      toAdd.add(TimeSource.http(_presetHttpMeituan,
+          alias: _presetAliases[_presetHttpMeituan] ?? '',
+          headers: _meituanDefaultHeaders));
+    }
+
+    if (toAdd.isEmpty) return;
+
+    setState(() {
+      _sources.addAll(toAdd);
+    });
+
+    // Clear these hosts from hidden presets (if user previously hid them)
+    for (final s in toAdd) {
+      _hiddenPresets.remove(s.host);
+    }
+    await _saveHiddenPresets();
+
+    // Persist NTP additions and run an immediate sync for added presets.
+    await _saveServers();
+    for (final s in toAdd) {
+      if (s.type == TimeSourceType.ntp) {
+        final off = await _queryNtpOffset(s.host);
+        if (off != null) {
+          setState(() {
+            final ts = _sources.firstWhere((x) => x.host == s.host);
+            ts.offsetMillis = off;
+            ts.lastSync = DateTime.now();
+          });
+        }
+      } else if (s.type == TimeSourceType.http) {
+        final off = await _queryHttpOffset(s);
+        if (off != null) {
+          setState(() {
+            final ts = _sources.firstWhere((x) => x.host == s.host);
+            ts.offsetMillis = off;
+            ts.lastSync = DateTime.now();
+          });
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // 时间显示 helpers
+  // ---------------------------------------------------------------------
 
   ({String prefix, String fraction}) _timePartsForSource(TimeSource s) {
     final now = DateTime.now().add(Duration(milliseconds: s.offsetMillis));
@@ -886,7 +1104,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String _formatLastSync(DateTime? dt) {
     if (dt == null) return '';
     final d = dt.toLocal();
-    return '最近同步: ${d.year}-${_twoDigits(d.month)}-${_twoDigits(d.day)} ${_twoDigits(d.hour)}:${_twoDigits(d.minute)}:${_twoDigits(d.second)}';
+    return '最近同步 ${_twoDigits(d.month)}-${_twoDigits(d.day)} ${_twoDigits(d.hour)}:${_twoDigits(d.minute)}:${_twoDigits(d.second)}';
   }
 
   String _twoDigits(int n) => n.toString().padLeft(2, '0');
@@ -917,7 +1135,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         textAlign: textAlign);
   }
 
+  /// 深色时钟卡上的大号时间：把用户选的小数颜色提亮，保证在深底上可读。
+  Widget _buildHeroTimeText(TimeSource s, {double fontSize = 44}) {
+    final parts = _timePartsForSource(s);
+    final bright = HSLColor.fromColor(_fractionColor)
+        .withLightness(0.68)
+        .toColor();
+    return Text.rich(
+      TextSpan(children: [
+        TextSpan(text: '${parts.prefix}.'),
+        TextSpan(text: parts.fraction, style: TextStyle(color: bright)),
+      ]),
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: fontSize,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -1,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+      maxLines: 1,
+    );
+  }
+
+  // ---------------------------------------------------------------------
   // Persistence helpers
+  // ---------------------------------------------------------------------
+
   Future<void> _loadSavedServers() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -1020,540 +1263,483 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         host == _presetHttpMeituan;
   }
 
-  void _restorePresetsDialog() {
-    final missing = <String>[];
-    if (!_sources.any((s) => s.host == _presetNtpAliyun)) {
-      missing.add(_presetNtpAliyun);
-    }
-    if (!_sources.any((s) => s.host == _presetNtpTencent)) {
-      missing.add(_presetNtpTencent);
-    }
-    if (!_sources.any((s) => s.host == _presetHttpMeituan)) {
-      missing.add(_presetHttpMeituan);
-    }
-
-    if (missing.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('没有缺失的预设需要恢复')));
-      return;
-    }
-
-    showDialog<void>(
-        context: context,
-        builder: (ctx) {
-          return AlertDialog(
-            title: const Text('恢复预设源'),
-            content: Text(
-                '将恢复以下预设: ${missing.map((h) => _presetAliases[h] ?? h).join(', ')}'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('取消')),
-              TextButton(
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
-                    _restorePresets();
-                  },
-                  child: const Text('恢复')),
-            ],
-          );
-        });
-  }
-
-  Future<void> _restorePresets() async {
-    final toAdd = <TimeSource>[];
-    if (!_sources.any((s) => s.host == _presetNtpAliyun)) {
-      toAdd.add(TimeSource.ntp(_presetNtpAliyun,
-          alias: _presetAliases[_presetNtpAliyun] ?? ''));
-    }
-    if (!_sources.any((s) => s.host == _presetNtpTencent)) {
-      toAdd.add(TimeSource.ntp(_presetNtpTencent,
-          alias: _presetAliases[_presetNtpTencent] ?? ''));
-    }
-    if (!_sources.any((s) => s.host == _presetHttpMeituan)) {
-      toAdd.add(TimeSource.http(_presetHttpMeituan,
-          alias: _presetAliases[_presetHttpMeituan] ?? '',
-          headers: _meituanDefaultHeaders));
-    }
-
-    if (toAdd.isEmpty) return;
-
-    setState(() {
-      _sources.addAll(toAdd);
-    });
-
-    // Clear these hosts from hidden presets (if user previously hid them)
-    for (final s in toAdd) {
-      _hiddenPresets.remove(s.host);
-    }
-    await _saveHiddenPresets();
-
-    // Persist NTP additions and run an immediate sync for added presets.
-    await _saveServers();
-    for (final s in toAdd) {
-      if (s.type == TimeSourceType.ntp) {
-        final off = await _queryNtpOffset(s.host);
-        if (off != null) {
-          setState(() {
-            final ts = _sources.firstWhere((x) => x.host == s.host);
-            ts.offsetMillis = off;
-            ts.lastSync = DateTime.now();
-          });
-        }
-      } else if (s.type == TimeSourceType.http) {
-        final off = await _queryHttpOffset(s);
-        if (off != null) {
-          setState(() {
-            final ts = _sources.firstWhere((x) => x.host == s.host);
-            ts.offsetMillis = off;
-            ts.lastSync = DateTime.now();
-          });
-        }
-      }
-    }
-  }
-
-  // Simple container for a single NTP measurement sample
-  // (declared at top-level below)
+  // ---------------------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
-    if (_isInPiP) {
-      final TimeSource source;
-      if (_sources.isEmpty) {
-        source = TimeSource.system();
-      } else {
-        var idx = _selectedIndex;
-        if (idx < 0) idx = 0;
-        if (idx >= _sources.length) idx = _sources.length - 1;
-        source = _sources[idx];
-      }
-      final label = source.isSystem
-          ? '系统时间'
-          : (source.alias.isNotEmpty ? source.alias : source.host);
-      return Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (!source.isSystem)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4.0),
-                      child: Text(
-                        label,
-                        style: const TextStyle(
-                            color: Colors.black54, fontSize: 14),
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                    ),
-                  _buildColoredTimeText(
-                    source,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 32,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
+    if (_isInPiP) return _buildPipView();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('悬浮时间'),
         actions: [
-          PopupMenuButton<String>(
-            onSelected: (v) {
-              if (v == 'about') {
-                Navigator.of(context)
-                    .push(MaterialPageRoute(builder: (_) => const AboutPage()));
-              }
-            },
-            itemBuilder: (ctx) => const [
-              PopupMenuItem(value: 'about', child: Text('关于')),
-            ],
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.l),
+            child: CircleIconButton(
+              icon: Icons.info_outline,
+              background: AppColors.surface,
+              color: AppColors.textSecondary,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AboutPage()),
+              ),
+            ),
           ),
         ],
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            children: [
-              Expanded(
-                child: Card(
-                  child: Column(
-                    children: [
-                      ListTile(
-                        title: const Text('时间源'),
-                        trailing:
-                            Row(mainAxisSize: MainAxisSize.min, children: [
-                          IconButton(
-                              icon: const Icon(Icons.add),
-                              onPressed: _addServerDialog),
-                          IconButton(
-                              icon: const Icon(Icons.restore),
-                              tooltip: '恢复预设源',
-                              onPressed: _restorePresetsDialog),
-                        ]),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16.0, vertical: 4.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Text('显示精度'),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Align(
-                                    alignment: Alignment.centerRight,
-                                    child: RadioGroup<TimePrecision>(
-                                      groupValue: _timePrecision,
-                                      onChanged: (value) {
-                                        if (value != null) {
-                                          _onPrecisionChanged(value);
-                                        }
-                                      },
-                                      child: Wrap(
-                                        alignment: WrapAlignment.end,
-                                        spacing: 12,
-                                        runSpacing: 4,
-                                        children: TimePrecision.values.map((p) {
-                                          return InkWell(
-                                            borderRadius:
-                                                BorderRadius.circular(24),
-                                            onTap: () => _onPrecisionChanged(p),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Radio<TimePrecision>(
-                                                  value: p,
-                                                  visualDensity:
-                                                      VisualDensity.compact,
-                                                  materialTapTargetSize:
-                                                      MaterialTapTargetSize
-                                                          .shrinkWrap,
-                                                ),
-                                                Text(_precisionLabel(p)),
-                                              ],
-                                            ),
-                                          );
-                                        }).toList(),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Text('小数颜色'),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Align(
-                                    alignment: Alignment.centerRight,
-                                    child: DropdownButtonHideUnderline(
-                                      child: DropdownButton<String>(
-                                        value: _fractionColorKey,
-                                        isDense: true,
-                                        alignment: Alignment.centerRight,
-                                        items: _fractionColorOptions
-                                            .map((option) => DropdownMenuItem(
-                                                  value: option.key,
-                                                  child: Row(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Container(
-                                                        width: 12,
-                                                        height: 12,
-                                                        margin: const EdgeInsets
-                                                            .only(right: 6),
-                                                        decoration:
-                                                            BoxDecoration(
-                                                                color: option
-                                                                    .color,
-                                                                shape: BoxShape
-                                                                    .circle),
-                                                      ),
-                                                      Text(option.label),
-                                                    ],
-                                                  ),
-                                                ))
-                                            .toList(),
-                                        onChanged: (value) {
-                                          if (value != null) {
-                                            _onFractionColorChanged(value);
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: RadioGroup<int>(
-                          groupValue: _selectedIndex,
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() => _selectedIndex = value);
-                              if (_overlayRunning) {
-                                _updateOverlayForSelected();
-                              }
-                            }
-                          },
-                          child: ListView.separated(
-                            itemCount: _sources.length,
-                            separatorBuilder: (_, __) =>
-                                const Divider(height: 1),
-                            itemBuilder: (context, index) {
-                              final s = _sources[index];
-                              // Get text scale factor for responsive adjustments
-                              final textScale =
-                                  MediaQuery.textScalerOf(context).scale(1.0);
-                              // Scale down spacing when text is enlarged
-                              final scaleFactor = textScale > 1.2
-                                  ? 0.7
-                                  : (textScale > 1.0 ? 0.85 : 1.0);
-                              final iconSize = 20.0 * scaleFactor;
-                              final buttonPadding = 8.0 * scaleFactor;
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl, 8, AppSpacing.xl, AppSpacing.xl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildHeroCard(),
+                  if (_batteryOptimized && Platform.isAndroid) ...[
+                    const SizedBox(height: AppSpacing.l),
+                    InfoBanner(
+                      title: '建议关闭电池优化',
+                      message: '系统可能会在锁屏后回收后台服务，导致悬浮时钟中断。将应用加入电池优化白名单可保持长期运行。',
+                      actionLabel: '去设置',
+                      onAction: _requestIgnoreBatteryOptimizations,
+                    ),
+                  ],
+                  const SizedBox(height: AppSpacing.l),
+                  _buildSettingsCard(),
+                  const SizedBox(height: AppSpacing.xl),
+                  _buildSourcesSection(),
+                ],
+              ),
+            ),
+          ),
+          _buildBottomBar(),
+        ],
+      ),
+    );
+  }
 
-                              return ListTile(
-                                leading: Radio<int>(
-                                  value: index,
-                                ),
-                                title: Text(
-                                  s.isSystem
-                                      ? 'System'
-                                      : (s.alias.isNotEmpty ? s.alias : s.host),
-                                  style: const TextStyle(
-                                    fontFeatures: [
-                                      FontFeature.tabularFigures()
-                                    ],
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      _buildColoredTimeText(
-                                        s,
-                                        style: const TextStyle(
-                                          fontFeatures: [
-                                            FontFeature.tabularFigures()
-                                          ],
-                                        ),
-                                      ),
-                                      // 偏移值移到第二行
-                                      if (!s.isSystem)
-                                        Padding(
-                                          padding:
-                                              const EdgeInsets.only(top: 2.0),
-                                          child: Text(
-                                            _formatOffset(s.offsetMillis),
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.grey.shade600,
-                                            ),
-                                          ),
-                                        ),
-                                    ]),
-                                trailing: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerRight,
-                                    child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          // 使用更紧凑的按钮设计
-                                          if (s.type == TimeSourceType.ntp)
-                                            Material(
-                                              color: Colors.transparent,
-                                              child: InkWell(
-                                                borderRadius:
-                                                    BorderRadius.circular(20),
-                                                onTap: () =>
-                                                    _editServerDialog(index),
-                                                child: Padding(
-                                                  padding: EdgeInsets.all(
-                                                      buttonPadding),
-                                                  child: Icon(Icons.edit,
-                                                      size: iconSize),
-                                                ),
-                                              ),
-                                            )
-                                          else if (!s.isSystem)
-                                            SizedBox(
-                                                width: iconSize +
-                                                    buttonPadding * 2),
-                                          if (!s.isSystem)
-                                            Material(
-                                              color: Colors.transparent,
-                                              child: InkWell(
-                                                borderRadius:
-                                                    BorderRadius.circular(20),
-                                                onTap: () async {
-                                                  final removed =
-                                                      _sources[index];
-                                                  final removedHost =
-                                                      removed.host;
-                                                  setState(() {
-                                                    if (_selectedIndex ==
-                                                        index) {
-                                                      _selectedIndex = 0;
-                                                    } else if (_selectedIndex >
-                                                        index) {
-                                                      _selectedIndex -= 1;
-                                                    }
-                                                    _sources.removeAt(index);
-                                                  });
-                                                  // If any tooltip overlay was showing, remove it
-                                                  // to avoid dangling overlays after list changes.
-                                                  if (_syncOverlayIndex !=
-                                                      null) {
-                                                    _removeSyncOverlay();
-                                                  }
+  Widget _buildHeroCard() {
+    final source = _selectedSource;
+    final rawLabel = source.isSystem
+        ? '系统时间'
+        : (source.alias.isNotEmpty ? source.alias : source.host);
+    final label =
+        rawLabel.length > 12 ? '${rawLabel.substring(0, 12)}…' : rawLabel;
 
-                                                  // Persist the updated server list (now includes HTTP/NTP).
-                                                  await _saveServers();
-
-                                                  // If the removed host is a preset, mark it hidden
-                                                  // so it won't be re-added on next startup.
-                                                  if (_isPresetHost(
-                                                      removedHost)) {
-                                                    _hiddenPresets
-                                                        .add(removedHost);
-                                                    await _saveHiddenPresets();
-                                                  }
-                                                },
-                                                child: Padding(
-                                                  padding: EdgeInsets.all(
-                                                      buttonPadding),
-                                                  child: Icon(Icons.delete,
-                                                      size: iconSize),
-                                                ),
-                                              ),
-                                            ),
-                                          // 同步时间图标
-                                          if (!s.isSystem && s.lastSync != null)
-                                            () {
-                                              final link =
-                                                  _layerLinks.putIfAbsent(
-                                                      index, () => LayerLink());
-                                              return CompositedTransformTarget(
-                                                link: link,
-                                                child: Material(
-                                                  color: Colors.transparent,
-                                                  child: InkResponse(
-                                                    radius: iconSize * 0.9,
-                                                    onTapDown: (details) =>
-                                                        _toggleSyncOverlay(
-                                                            index,
-                                                            link,
-                                                            details
-                                                                .globalPosition),
-                                                    child: SizedBox(
-                                                      width: iconSize +
-                                                          buttonPadding * 2,
-                                                      height: iconSize +
-                                                          buttonPadding * 2,
-                                                      child: Icon(
-                                                          Icons.error_outline,
-                                                          size: iconSize * 0.9),
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            }()
-                                          else if (!s.isSystem)
-                                            SizedBox(
-                                                width: iconSize +
-                                                    buttonPadding * 2),
-                                          // 类型标签
-                                          Container(
-                                              margin: EdgeInsets.only(
-                                                  left: 4.0 * scaleFactor),
-                                              padding: EdgeInsets.symmetric(
-                                                  horizontal: 4 * scaleFactor,
-                                                  vertical: 1 * scaleFactor),
-                                              decoration: BoxDecoration(
-                                                  color: s.type ==
-                                                          TimeSourceType.ntp
-                                                      ? Colors.blue.shade50
-                                                      : (s.type == TimeSourceType.http
-                                                          ? Colors.green.shade50
-                                                          : Colors
-                                                              .grey.shade200),
-                                                  borderRadius:
-                                                      BorderRadius.circular(4)),
-                                              child: Text(
-                                                  s.type == TimeSourceType.ntp
-                                                      ? 'ntp'
-                                                      : (s.type == TimeSourceType.http
-                                                          ? 'http'
-                                                          : 'sys'),
-                                                  style: TextStyle(
-                                                      fontSize:
-                                                          9 * scaleFactor))),
-                                        ])),
-                                onTap: () {
-                                  setState(() => _selectedIndex = index);
-                                  if (_overlayRunning) {
-                                    _updateOverlayForSelected();
-                                  }
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            ElevatedButton(
-                                onPressed: _toggleOverlay,
-                                child: Text(_overlayRunning ? '停止悬浮' : '开始悬浮')),
-                            ElevatedButton(
-                                onPressed: _pipSupported
-                                    ? _enterPictureInPicture
-                                    : null,
-                                child: const Text('画中画')),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        gradient: AppGradients.hero,
+        borderRadius: BorderRadius.circular(AppRadius.large),
+        boxShadow: AppShadows.hero,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.large),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -46,
+              top: -58,
+              child: Container(
+                width: 170,
+                height: 170,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.06), width: 22),
                 ),
               ),
+            ),
+            Positioned(
+              right: 56,
+              bottom: -74,
+              child: Container(
+                width: 130,
+                height: 130,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.brand.withValues(alpha: 0.12),
+                ),
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.schedule,
+                        size: 15, color: Colors.white),
+                  ),
+                  const SizedBox(width: AppSpacing.s),
+                  const Text('实时时钟',
+                      style: TextStyle(
+                          color: AppColors.onDarkMuted,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  StatusPill(running: _overlayRunning),
+                ]),
+                const SizedBox(height: AppSpacing.xl),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: _buildHeroTimeText(source),
+                ),
+                const SizedBox(height: AppSpacing.l),
+                Row(children: [
+                  Tag(
+                    label: label,
+                    color: Colors.white,
+                    background: const Color(0x1FFFFFFF),
+                    icon: source.isSystem ? Icons.computer : Icons.language,
+                  ),
+                  const SizedBox(width: AppSpacing.s),
+                  if (!source.isSystem)
+                    Flexible(
+                      child: Tag(
+                        label: '偏差 ${_formatOffset(source.offsetMillis)}',
+                        color: AppColors.heroFraction,
+                        background: const Color(0x26FFC46B),
+                      ),
+                    ),
+                  const Spacer(),
+                  Tag(
+                    label: _precisionLabel(_timePrecision),
+                    color: AppColors.onDarkMuted,
+                    background: const Color(0x14FFFFFF),
+                  ),
+                ]),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsCard() {
+    return SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(
+            title: '显示设置',
+            subtitle: '精度与小数位高亮',
+            icon: Icons.tune,
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          _fieldLabel('显示精度'),
+          const SizedBox(height: AppSpacing.s),
+          OptionSegment<TimePrecision>(
+            items: TimePrecision.values
+                .map((p) =>
+                    SegmentItem(value: p, label: _precisionLabel(p)))
+                .toList(),
+            value: _timePrecision,
+            onChanged: _onPrecisionChanged,
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          Row(children: [
+            _fieldLabel('小数位颜色'),
+            const Spacer(),
+            Text(_fractionColorOption.label,
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.brand)),
+          ]),
+          const SizedBox(height: AppSpacing.m),
+          ColorPickerRow(
+            options: _fractionColorOptions,
+            selectedKey: _fractionColorKey,
+            onChanged: _onFractionColorChanged,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _fieldLabel(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textSecondary,
+      ),
+    );
+  }
+
+  Widget _buildSourcesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: SectionHeader(
+            title: '时间源',
+            subtitle: '共 ${_sources.length} 个 · 选择悬浮窗的时间基准',
+            icon: Icons.language,
+            actions: [
+              CircleIconButton(
+                icon: Icons.add,
+                tooltip: '添加 NTP 服务器',
+                onPressed: () => _showSourceEditorDialog(null),
+              ),
+              const SizedBox(width: AppSpacing.s),
+              CircleIconButton(
+                icon: Icons.restore,
+                tooltip: '恢复预设源',
+                onPressed: _restorePresetsDialog,
+              ),
             ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.l),
+        ...List.generate(
+          _sources.length,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.m),
+            child: _buildSourceCard(index),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSourceCard(int index) {
+    final s = _sources[index];
+    final selected = index == _selectedIndex;
+    final name = s.isSystem
+        ? '系统时间'
+        : (s.alias.isNotEmpty ? s.alias : s.host);
+    final typeLabel = s.type == TimeSourceType.ntp
+        ? 'NTP'
+        : (s.type == TimeSourceType.http ? 'HTTP' : 'SYS');
+    final typeColor = s.type == TimeSourceType.ntp
+        ? AppColors.brand
+        : (s.type == TimeSourceType.http ? AppColors.success : AppColors.textTertiary);
+    final typeBg = s.type == TimeSourceType.ntp
+        ? AppColors.brandSoft
+        : (s.type == TimeSourceType.http
+            ? AppColors.successSoft
+            : AppColors.surfaceAlt);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _selectSource(index),
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.all(AppSpacing.l),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.brandSoft : AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            border: Border.all(
+              color: selected ? AppColors.brand : AppColors.border,
+              width: selected ? 1.5 : 1,
+            ),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: AppColors.brand.withValues(alpha: 0.14),
+                      blurRadius: 16,
+                      offset: const Offset(0, 5),
+                    ),
+                  ]
+                : AppShadows.card,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? Colors.white : Colors.transparent,
+                    border: Border.all(
+                      color: selected ? AppColors.brand : AppColors.borderStrong,
+                      width: selected ? 5 : 1.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.m),
+                Expanded(
+                  child: Text(name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      )),
+                ),
+                Tag(label: typeLabel, color: typeColor, background: typeBg),
+              ]),
+              if (!s.isSystem && s.host != name)
+                Padding(
+                  padding: const EdgeInsets.only(left: 28, top: 4),
+                  child: Text(s.host,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 10.5, color: AppColors.textTertiary)),
+                ),
+              const SizedBox(height: AppSpacing.m),
+              Row(children: [
+                Expanded(
+                  child: _buildColoredTimeText(
+                    s,
+                    style: const TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+                if (!s.isSystem)
+                  Padding(
+                    padding: const EdgeInsets.only(right: AppSpacing.s),
+                    child: Tag(
+                      label: _formatOffset(s.offsetMillis),
+                      color: AppColors.textSecondary,
+                      background: selected
+                          ? Colors.white
+                          : AppColors.surfaceAlt,
+                    ),
+                  ),
+                if (s.type == TimeSourceType.ntp)
+                  CircleIconButton(
+                    icon: Icons.edit,
+                    size: 30,
+                    tooltip: '编辑',
+                    onPressed: () => _showSourceEditorDialog(index),
+                  ),
+                if (!s.isSystem) ...[
+                  const SizedBox(width: 6),
+                  CircleIconButton(
+                    icon: Icons.delete_outline,
+                    size: 30,
+                    tooltip: '删除',
+                    color: AppColors.danger,
+                    background: AppColors.dangerSoft,
+                    onPressed: () => _removeSource(index),
+                  ),
+                ],
+                if (!s.isSystem && s.lastSync != null) ...[
+                  const SizedBox(width: 6),
+                  _buildSyncInfoButton(index, selected),
+                ],
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 同步信息 tooltip 需要点击的全局坐标，因此直接用 InkResponse.onTapDown
+  /// 转发（比外层 GestureDetector 更可靠，不会被子按钮的点击手势抢走）。
+  Widget _buildSyncInfoButton(int index, bool selected) {
+    final link = _layerLinks.putIfAbsent(index, () => LayerLink());
+    return CompositedTransformTarget(
+      link: link,
+      child: Tooltip(
+        message: '同步时间',
+        child: Material(
+          color: selected ? Colors.white : AppColors.surfaceAlt,
+          borderRadius: BorderRadius.circular(AppRadius.small),
+          child: InkResponse(
+            radius: 16,
+            onTapDown: (details) =>
+                _toggleSyncOverlay(index, link, details.globalPosition),
+            child: const SizedBox(
+              width: 30,
+              height: 30,
+              child: Icon(Icons.error_outline,
+                  size: 16, color: AppColors.textSecondary),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xl, AppSpacing.m, AppSpacing.xl, AppSpacing.m),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.border)),
+        boxShadow: AppShadows.floating,
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(children: [
+          GradientButton(
+            expand: true,
+            label: _overlayRunning ? '停止悬浮' : '开始悬浮',
+            icon: _overlayRunning ? Icons.stop : Icons.play_arrow,
+            danger: _overlayRunning,
+            onPressed: _toggleOverlay,
+          ),
+          const SizedBox(width: AppSpacing.m),
+          SoftButton(
+            expand: true,
+            label: '画中画',
+            icon: Icons.picture_in_picture_alt,
+            onPressed: _pipSupported ? _enterPictureInPicture : null,
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildPipView() {
+    final source = _selectedSource;
+    final label = source.isSystem
+        ? '系统时间'
+        : (source.alias.isNotEmpty ? source.alias : source.host);
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppGradients.hero),
+        alignment: Alignment.center,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.onDarkMuted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                _buildHeroTimeText(source, fontSize: 34),
+              ],
+            ),
           ),
         ),
       ),
