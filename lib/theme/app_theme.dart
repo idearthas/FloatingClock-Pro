@@ -1,59 +1,59 @@
 import 'package:flutter/material.dart';
 
-/// FloatingClock 设计系统（轻量 / 简约版）
+/// FloatingClock 设计系统（冷淡风 / 极简版）
 ///
-/// 视觉基调：大面积留白 + 纯白卡片 + 单一克制品牌蓝作为点缀，
-/// 去除深色渐变与重阴影，整体更清爽、更轻。
+/// 视觉基调：低饱和的冷调中性灰 + 一抹克制的钢蓝点缀，
+/// 大留白、近乎无阴影、去掉所有鲜艳与渐变，整体安静、克制、冷淡。
 class AppColors {
   AppColors._();
 
-  // 品牌色（克制，仅作点缀）
-  static const Color brand = Color(0xFF4A6CF7);
-  static const Color brandDeep = Color(0xFF3A57D7);
-  static const Color brandSoft = Color(0xFFEEF2FF);
-  static const Color brandSoftStrong = Color(0xFFE0E7FF);
-  static const Color accent = Color(0xFF7C5CFF);
+  // 品牌色（去饱和的钢蓝，仅作极少量点缀）
+  static const Color brand = Color(0xFF5B7C99);
+  static const Color brandDeep = Color(0xFF486480);
+  static const Color brandSoft = Color(0xFFEDF1F5);
+  static const Color brandSoftStrong = Color(0xFFDCE3EB);
+  static const Color accent = Color(0xFF7C8AA0);
 
-  // 中性底色
+  // 中性冷调底色
   static const Color background = Color(0xFFF6F7F9);
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceAlt = Color(0xFFFAFBFC);
-  static const Color border = Color(0xFFECEDF1);
-  static const Color borderStrong = Color(0xFFE1E3EA);
+  static const Color surfaceAlt = Color(0xFFFBFCFD);
+  static const Color border = Color(0xFFE9ECF0);
+  static const Color borderStrong = Color(0xFFDCE0E6);
 
-  // 文字
-  static const Color textPrimary = Color(0xFF1C2230);
-  static const Color textSecondary = Color(0xFF5B6478);
-  static const Color textTertiary = Color(0xFF9AA1B1);
+  // 文字（冷深灰，非纯黑）
+  static const Color textPrimary = Color(0xFF2B313B);
+  static const Color textSecondary = Color(0xFF5E6675);
+  static const Color textTertiary = Color(0xFF9AA1AD);
 
-  // 状态色（柔和）
-  static const Color success = Color(0xFF16A34A);
-  static const Color successSoft = Color(0xFFE9F7EE);
-  static const Color warning = Color(0xFFE08A00);
-  static const Color warningSoft = Color(0xFFFFF4E2);
-  static const Color danger = Color(0xFFE5484D);
-  static const Color dangerSoft = Color(0xFFFDECEC);
+  // 状态色（全部去饱和，避免跳色）
+  static const Color success = Color(0xFF5E8C75);
+  static const Color successSoft = Color(0xFFEAF1ED);
+  static const Color warning = Color(0xFFB08A4E);
+  static const Color warningSoft = Color(0xFFF6F0E6);
+  static const Color danger = Color(0xFFB26A6E);
+  static const Color dangerSoft = Color(0xFFF5ECEC);
 
-  // 浅色 Hero（主卡 / 画中画）：极浅蓝 → 白
-  static const Color heroTop = Color(0xFFEDF2FF);
+  // 浅色 Hero（主卡 / 画中画）：极浅冷白 → 白
+  static const Color heroTop = Color(0xFFF1F4F7);
   static const Color heroBottom = Color(0xFFFFFFFF);
-  static const Color onLight = Color(0xFF1C2230);
-  static const Color onLightMuted = Color(0xFF6B7384);
-  // 小数位高亮（与品牌蓝一致，保持克制）
-  static const Color heroFraction = Color(0xFF4A6CF7);
+  static const Color onLight = Color(0xFF2B313B);
+  static const Color onLightMuted = Color(0xFF6B7280);
+  // 小数位高亮（与钢蓝一致，克制不跳）
+  static const Color heroFraction = Color(0xFF5B7C99);
 }
 
 class AppGradients {
   AppGradients._();
 
-  // 按钮等少量点缀用的品牌渐变
+  // 按钮点缀用的钢蓝渐变（去饱和、低对比）
   static const LinearGradient brand = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [Color(0xFF5B82FF), Color(0xFF6C5CE7)],
+    colors: [Color(0xFF6B8AA6), Color(0xFF5B7C99)],
   );
 
-  // 浅色主卡 / 画中画：极浅蓝到白
+  // 主卡 / 画中画：极浅冷白到白（几乎不可察觉的渐变）
   static const LinearGradient hero = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -63,7 +63,7 @@ class AppGradients {
   static const LinearGradient danger = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [Color(0xFFFF7B7B), Color(0xFFE5484D)],
+    colors: [Color(0xFFC28A8D), Color(0xFFB26A6E)],
   );
 }
 
@@ -91,28 +91,28 @@ class AppSpacing {
 class AppShadows {
   AppShadows._();
 
-  // 极淡卡片阴影，几乎不可见，靠边框区隔
+  // 几乎不可见的卡片阴影，靠边框区隔
   static const List<BoxShadow> card = [
     BoxShadow(
-      color: Color(0x08000000),
-      blurRadius: 14,
-      offset: Offset(0, 3),
+      color: Color(0x06000000),
+      blurRadius: 12,
+      offset: Offset(0, 2),
     ),
   ];
 
-  // 主卡阴影同样收敛
+  // 主卡阴影同样极弱
   static const List<BoxShadow> hero = [
     BoxShadow(
-      color: Color(0x0C1B3A66),
-      blurRadius: 16,
-      offset: Offset(0, 5),
+      color: Color(0x08000000),
+      blurRadius: 14,
+      offset: Offset(0, 4),
     ),
   ];
 
   static const List<BoxShadow> floating = [
     BoxShadow(
-      color: Color(0x0A000000),
-      blurRadius: 14,
+      color: Color(0x07000000),
+      blurRadius: 12,
       offset: Offset(0, -2),
     ),
   ];

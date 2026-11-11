@@ -177,13 +177,13 @@ class StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dot = running ? const Color(0xFF22C55E) : const Color(0xFF9AA1B1);
+    final dot = running ? AppColors.success : const Color(0xFF9AA1AD);
     final fg = light ? AppColors.textPrimary : Colors.white;
     final bg = light
-        ? (running ? const Color(0x1F22C55E) : const Color(0x141C2230))
+        ? (running ? const Color(0x1F5E8C75) : const Color(0x141C2230))
         : (running ? const Color(0x1F4ADE80) : const Color(0x14FFFFFF));
     final border = light
-        ? (running ? const Color(0x3322C55E) : const Color(0x141C2230))
+        ? (running ? const Color(0x335E8C75) : const Color(0x141C2230))
         : (running ? const Color(0x334ADE80) : const Color(0x22FFFFFF));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
