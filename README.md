@@ -6,7 +6,7 @@
     <img src="https://img.shields.io/badge/Language-Dart-0175C2?logo=dart&logoColor=white" alt="Dart" />
     <img src="https://img.shields.io/badge/Platform-Android%205.0%2B-3DDC84?logo=android&logoColor=white" alt="Android" />
     <img src="https://img.shields.io/badge/License-Apache%202.0-000000?logo=apache" alt="License" />
-    <img src="https://img.shields.io/github/last-commit/idearthas/FloatingClock" alt="Last Commit" />
+    <img src="https://img.shields.io/github/last-commit/idearthas/FloatingClock-Pro" alt="Last Commit" />
   </p>
 
   <img src="./assets/home.jpg" alt="App 界面预览" width="45%" />
