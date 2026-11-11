@@ -1138,16 +1138,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// 深色时钟卡上的大号时间：把用户选的小数颜色提亮，保证在深底上可读。
   Widget _buildHeroTimeText(TimeSource s, {double fontSize = 44}) {
     final parts = _timePartsForSource(s);
-    final bright = HSLColor.fromColor(_fractionColor)
-        .withLightness(0.68)
-        .toColor();
     return Text.rich(
       TextSpan(children: [
         TextSpan(text: '${parts.prefix}.'),
-        TextSpan(text: parts.fraction, style: TextStyle(color: bright)),
+        TextSpan(text: parts.fraction, style: TextStyle(color: _fractionColor)),
       ]),
       style: TextStyle(
-        color: Colors.white,
+        color: AppColors.textPrimary,
         fontSize: fontSize,
         fontWeight: FontWeight.w700,
         letterSpacing: -1,
@@ -1334,94 +1331,62 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       decoration: BoxDecoration(
         gradient: AppGradients.hero,
         borderRadius: BorderRadius.circular(AppRadius.large),
+        border: Border.all(color: AppColors.border),
         boxShadow: AppShadows.hero,
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.large),
-        child: Stack(
-          children: [
-            Positioned(
-              right: -46,
-              top: -58,
-              child: Container(
-                width: 170,
-                height: 170,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.06), width: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: AppColors.brandSoft,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.schedule, size: 15, color: AppColors.brand),
+            ),
+            const SizedBox(width: AppSpacing.s),
+            const Text('实时时钟',
+                style: TextStyle(
+                    color: AppColors.onLightMuted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600)),
+            const Spacer(),
+            StatusPill(running: _overlayRunning, light: true),
+          ]),
+          const SizedBox(height: AppSpacing.xl),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: _buildHeroTimeText(source),
+          ),
+          const SizedBox(height: AppSpacing.l),
+          Row(children: [
+            Tag(
+              label: label,
+              color: AppColors.textPrimary,
+              background: AppColors.brandSoft,
+              icon: source.isSystem ? Icons.computer : Icons.language,
+            ),
+            const SizedBox(width: AppSpacing.s),
+            if (!source.isSystem)
+              Flexible(
+                child: Tag(
+                  label: '偏差 ${_formatOffset(source.offsetMillis)}',
+                  color: AppColors.brandDeep,
+                  background: AppColors.brandSoft,
                 ),
               ),
+            const Spacer(),
+            Tag(
+              label: _precisionLabel(_timePrecision),
+              color: AppColors.onLightMuted,
+              background: AppColors.surfaceAlt,
             ),
-            Positioned(
-              right: 56,
-              bottom: -74,
-              child: Container(
-                width: 130,
-                height: 130,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.brand.withValues(alpha: 0.12),
-                ),
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.schedule,
-                        size: 15, color: Colors.white),
-                  ),
-                  const SizedBox(width: AppSpacing.s),
-                  const Text('实时时钟',
-                      style: TextStyle(
-                          color: AppColors.onDarkMuted,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                  StatusPill(running: _overlayRunning),
-                ]),
-                const SizedBox(height: AppSpacing.xl),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: _buildHeroTimeText(source),
-                ),
-                const SizedBox(height: AppSpacing.l),
-                Row(children: [
-                  Tag(
-                    label: label,
-                    color: Colors.white,
-                    background: const Color(0x1FFFFFFF),
-                    icon: source.isSystem ? Icons.computer : Icons.language,
-                  ),
-                  const SizedBox(width: AppSpacing.s),
-                  if (!source.isSystem)
-                    Flexible(
-                      child: Tag(
-                        label: '偏差 ${_formatOffset(source.offsetMillis)}',
-                        color: AppColors.heroFraction,
-                        background: const Color(0x26FFC46B),
-                      ),
-                    ),
-                  const Spacer(),
-                  Tag(
-                    label: _precisionLabel(_timePrecision),
-                    color: AppColors.onDarkMuted,
-                    background: const Color(0x14FFFFFF),
-                  ),
-                ]),
-              ],
-            ),
-          ],
-        ),
+          ]),
+        ],
       ),
     );
   }
@@ -1731,7 +1696,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppColors.onDarkMuted,
+                    color: AppColors.onLightMuted,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),

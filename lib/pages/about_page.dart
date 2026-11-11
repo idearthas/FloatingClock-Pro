@@ -16,7 +16,7 @@ class AboutPage extends StatefulWidget {
 class _AboutPageState extends State<AboutPage> {
   final String _appName = '悬浮时间';
   String _version = '';
-  final String _repoUrl = 'https://github.com/amchii/FloatingClock';
+  final String _repoUrl = 'https://github.com/idearthas/FloatingClock-Pro';
   bool _loading = false;
   Uint8List? _iconBytes;
   final ImageProvider _fallbackIcon = const AssetImage('assets/app_icon.webp');
@@ -122,12 +122,13 @@ class _AboutPageState extends State<AboutPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 品牌卡
+            // 品牌卡（浅色）
             Container(
               padding: const EdgeInsets.all(AppSpacing.xl),
               decoration: BoxDecoration(
                 gradient: AppGradients.hero,
                 borderRadius: BorderRadius.circular(AppRadius.large),
+                border: Border.all(color: AppColors.border),
                 boxShadow: AppShadows.hero,
               ),
               child: Column(
@@ -135,7 +136,7 @@ class _AboutPageState extends State<AboutPage> {
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
+                      color: AppColors.brandSoft,
                       borderRadius: BorderRadius.circular(26),
                     ),
                     child: iconWidget,
@@ -146,7 +147,7 @@ class _AboutPageState extends State<AboutPage> {
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       letterSpacing: 0.4,
                     ),
                   ),
@@ -156,13 +157,13 @@ class _AboutPageState extends State<AboutPage> {
                       height: 18,
                       width: 18,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                          strokeWidth: 2, color: AppColors.brand),
                     )
                   else
                     Tag(
                       label: 'v$displayedVersion',
-                      color: Colors.white,
-                      background: const Color(0x1FFFFFFF),
+                      color: AppColors.textPrimary,
+                      background: AppColors.brandSoft,
                     ),
                   const SizedBox(height: AppSpacing.l),
                   const Text(
@@ -170,7 +171,7 @@ class _AboutPageState extends State<AboutPage> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12.5,
-                      color: AppColors.onDarkMuted,
+                      color: AppColors.onLightMuted,
                       height: 1.5,
                     ),
                   ),

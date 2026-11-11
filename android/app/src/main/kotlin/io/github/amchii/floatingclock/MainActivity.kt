@@ -253,9 +253,19 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun handlePiPChange(inPiP: Boolean) {
+        notifyPiPChanged(inPiP)
+        if (inPiP) {
+            // 进入画中画时 Activity 会收到 onPause，Flutter 默认会暂停 Dart 帧调度，
+            // 导致小窗里的时钟冻结、看起来像“出不来/没用”。主动通知引擎恢复渲染，
+            // 保证 PiP 窗口内的时钟持续刷新。
+            flutterEngine?.lifecycleChannel?.appIsResumed()
+        }
+    }
+
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode)
-        notifyPiPChanged(isInPictureInPictureMode)
+        handlePiPChange(isInPictureInPictureMode)
     }
 
     override fun onPictureInPictureModeChanged(
@@ -263,6 +273,6 @@ class MainActivity : FlutterActivity() {
         newConfig: Configuration?
     ) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        notifyPiPChanged(isInPictureInPictureMode)
+        handlePiPChange(isInPictureInPictureMode)
     }
 }

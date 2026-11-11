@@ -168,19 +168,29 @@ class Tag extends StatelessWidget {
 
 class StatusPill extends StatelessWidget {
   final bool running;
-  const StatusPill({super.key, required this.running});
+  final bool light;
+  const StatusPill({
+    super.key,
+    required this.running,
+    this.light = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final dot = running ? const Color(0xFF4ADE80) : const Color(0xFF8D9AB5);
+    final dot = running ? const Color(0xFF22C55E) : const Color(0xFF9AA1B1);
+    final fg = light ? AppColors.textPrimary : Colors.white;
+    final bg = light
+        ? (running ? const Color(0x1F22C55E) : const Color(0x141C2230))
+        : (running ? const Color(0x1F4ADE80) : const Color(0x14FFFFFF));
+    final border = light
+        ? (running ? const Color(0x3322C55E) : const Color(0x141C2230))
+        : (running ? const Color(0x334ADE80) : const Color(0x22FFFFFF));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: running ? const Color(0x1F4ADE80) : const Color(0x14FFFFFF),
+        color: bg,
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(
-          color: running ? const Color(0x334ADE80) : const Color(0x22FFFFFF),
-        ),
+        border: Border.all(color: border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -204,8 +214,8 @@ class StatusPill extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             running ? '悬浮中' : '未启动',
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: fg,
               fontSize: 11,
               fontWeight: FontWeight.w600,
             ),

@@ -54,8 +54,8 @@ class FloatingClockService : Service() {
         private const val CHANNEL_ID = "floating_clock_channel"
         private const val NOTIFICATION_ID = 1001
         private const val PREFS_NAME = "floating_clock_service"
-        private val DEFAULT_FRACTION_COLOR = 0xFFC62828.toInt()
-        private val BRAND_COLOR = 0xFF6C8CFF.toInt()
+        private val DEFAULT_FRACTION_COLOR = 0xFF4A6CF7.toInt()
+        private val BRAND_COLOR = 0xFF4A6CF7.toInt()
     }
 
     private lateinit var windowManager: WindowManager
@@ -271,24 +271,24 @@ class FloatingClockService : Service() {
         }
         overlayLayoutParams = lp
 
-        // 卡片：深色渐变 + 细描边 + 大圆角 + 阴影
+        // 卡片：浅色半透明 + 细描边 + 大圆角（轻量毛玻璃感）
         val background = GradientDrawable(
             GradientDrawable.Orientation.TL_BR,
             intArrayOf(
-                Color.argb(242, 26, 32, 52),
-                Color.argb(238, 12, 16, 28)
+                Color.argb(244, 255, 255, 255),
+                Color.argb(240, 246, 248, 252)
             )
         ).apply {
-            cornerRadius = dp(18f).toFloat()
-            setStroke(dp(1f).coerceAtLeast(1), 0x33FFFFFF)
+            cornerRadius = dp(16f).toFloat()
+            setStroke(dp(1f).coerceAtLeast(1), 0xFFE1E3EA.toInt())
         }
 
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             this.background = background
-            setPadding(dp(14f), dp(10f), dp(10f), dp(10f))
+            setPadding(dp(12f), dp(9f), dp(10f), dp(9f))
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                elevation = dp(10f).toFloat()
+                elevation = dp(6f).toFloat()
             }
         }
 
@@ -311,7 +311,7 @@ class FloatingClockService : Service() {
         header.addView(dot)
 
         val aliasTv = TextView(this).apply {
-            setTextColor(0xB3FFFFFF.toInt())
+            setTextColor(0x991C2230.toInt())
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             isSingleLine = true
             ellipsize = TextUtils.TruncateAt.END
@@ -333,7 +333,8 @@ class FloatingClockService : Service() {
                 setPadding(dp(6f), dp(6f), dp(6f), dp(6f))
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 contentDescription = description
-                alpha = 0.85f
+                alpha = 0.9f
+                setColorFilter(0xFF1C2230.toInt())
                 setOnClickListener { onClick() }
             }
         }
@@ -357,9 +358,9 @@ class FloatingClockService : Service() {
         // 大字时间
         val tv = TextView(this).apply {
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-            setTextColor(Color.WHITE)
+            setTextColor(0xFF1C2230.toInt())
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 23f)
-            setShadowLayer(dp(3f).toFloat(), 0f, dp(1f).toFloat(), 0x66000000)
+            setShadowLayer(dp(2f).toFloat(), 0f, dp(1f).toFloat(), 0x14000000)
             isSingleLine = true
             includeFontPadding = false
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
